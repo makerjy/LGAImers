@@ -113,8 +113,9 @@ pyproject.toml
 uv.lock
 ```
 
-대회 원본 CSV, OOF parquet, 모델 가중치와 최종 제출 ZIP은 Git에서 제외합니다.
-로컬 최종 제출 파일은 `final/v14_submit.zip`이며 SHA-256은
+대회 원본 CSV, OOF parquet와 모델 가중치는 Git에서 제외합니다. 최종 제출
+패키지는 [v14-final Release](https://github.com/taeg2/Konkuk_CS_Aimers/releases/tag/v14-final)에서
+다운로드할 수 있습니다. 파일명은 `v14_submit.zip`이며 SHA-256은
 `af76cc40cb2313bf2b9bc8cd6deda943be245adf6f9f5d74c1ef6b3561d33e09`입니다.
 
 ## 실행 환경

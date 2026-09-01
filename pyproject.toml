@@ -1,0 +1,27 @@
+[project]
+name = "lgaimers"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "catboost>=1.2.10",
+    "lightgbm>=4.7.0",
+    "numpy>=2.4.6",
+    "pandas>=3.0.5",
+    "pyarrow>=25.0.0",
+    "tabm>=0.0.3",
+    "torch",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff]
+exclude = [
+    ".venv",
+]

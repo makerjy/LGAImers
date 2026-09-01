@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "zip_path": "final/v14_submit.zip",
+  "package_version": "v14",
+  "zip_bytes": 143113466,
+  "uncompressed_bytes": 403052181,
+  "zip_root_script": true,
+  "zip_crc_integrity": "PASS",
+  "baseline": {
+    "rows": 5,
+    "target_column": "control_success",
+    "prediction_min": 0.3593404926282387,
+    "prediction_max": 0.4937714608166765,
+    "prediction_mean": 0.4378989415868724
+  },
+  "baseline_seconds": 3.540476374910213,
+  "shuffle_seconds": 3.4556702920235693,
+  "shuffle_max_abs_diff": 0.0,
+  "unknown_missing": {
+    "rows": 5,
+    "target_column": "control_success",
+    "prediction_min": 0.3593404926282387,
+    "prediction_max": 0.4937714608166765,
+    "prediction_mean": 0.4353402915016605
+  },
+  "unknown_missing_seconds": 3.5105899999616668,
+  "trackman_file_required": false,
+  "index_error_regression": "PASS",
+  "inference_under_10_minutes": true
+}

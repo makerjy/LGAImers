@@ -1,0 +1,234 @@
+{
+  "candidate": "p_v14_month_calibrated",
+  "formula": "V13 + R-only weighted directions from MH 12-model-compatible profile ensemble and two TabM seeds, followed by fixed game_type x month affine calibration",
+  "target_brier_1500": 0.2462267860881907,
+  "direction_order": [
+    "p_mh_raw_blend_minus_v13",
+    "p_tabm_seed1234_minus_v13",
+    "p_tabm_seed2345_minus_v13"
+  ],
+  "direction_weights": [
+    0.29035201344269823,
+    0.26802928766589995,
+    0.2453696281371702
+  ],
+  "month_calibration": {
+    "F_10": {
+      "intercept": 0.023934651883073307,
+      "slope_delta": -0.1319436572057118,
+      "rows": 2113
+    },
+    "F_3": {
+      "intercept": -0.004010984570266723,
+      "slope_delta": -0.5665575365849819,
+      "rows": 701
+    },
+    "F_4": {
+      "intercept": 0.003746091020820894,
+      "slope_delta": 0.20055932274853483,
+      "rows": 14997
+    },
+    "F_5": {
+      "intercept": -0.0059666652201245665,
+      "slope_delta": 0.10558244110438852,
+      "rows": 17242
+    },
+    "F_6": {
+      "intercept": -0.007859060684585693,
+      "slope_delta": 0.047909454313601677,
+      "rows": 14556
+    },
+    "F_7": {
+      "intercept": -0.024601662114112553,
+      "slope_delta": -0.03431804770406276,
+      "rows": 10703
+    },
+    "F_8": {
+      "intercept": -0.011023909583901526,
+      "slope_delta": -0.04890305869824106,
+      "rows": 12915
+    },
+    "F_9": {
+      "intercept": -0.0001806837018082139,
+      "slope_delta": -0.08762382540884965,
+      "rows": 12917
+    },
+    "R_10": {
+      "intercept": 0.012531346514965458,
+      "slope_delta": 0.11377925007934518,
+      "rows": 26472
+    },
+    "R_3": {
+      "intercept": -0.0016947044113988954,
+      "slope_delta": 0.20358554638016124,
+      "rows": 11660
+    },
+    "R_4": {
+      "intercept": -0.008311677974100535,
+      "slope_delta": 0.14430241790825196,
+      "rows": 110274
+    },
+    "R_5": {
+      "intercept": 0.0022496659191331664,
+      "slope_delta": 0.2508450630845702,
+      "rows": 111277
+    },
+    "R_6": {
+      "intercept": 0.0027022291066693947,
+      "slope_delta": 0.09038390842929264,
+      "rows": 112355
+    },
+    "R_7": {
+      "intercept": -0.00457519703392937,
+      "slope_delta": 0.1661917494844197,
+      "rows": 84446
+    },
+    "R_8": {
+      "intercept": 0.0011720403932963448,
+      "slope_delta": 0.06477596577001266,
+      "rows": 104744
+    },
+    "R_9": {
+      "intercept": -0.0035086772772413787,
+      "slope_delta": -0.02202292469010752,
+      "rows": 99132
+    }
+  },
+  "metrics": {
+    "p_v13_centered_expert_best": {
+      "brier": 0.24664052736945616,
+      "gap_to_1500": 0.0004137412812654506,
+      "folds": {
+        "2022": {
+          "rows": 247472,
+          "brier": 0.24344371152592326,
+          "prediction_mean": 0.5320920252485721,
+          "target_mean": 0.5289204435249241
+        },
+        "2023": {
+          "rows": 245525,
+          "brier": 0.24872845292193485,
+          "prediction_mean": 0.4923750466027603,
+          "target_mean": 0.49995723449750534
+        },
+        "2024": {
+          "rows": 253507,
+          "brier": 0.24773905517799172,
+          "prediction_mean": 0.4883078947272596,
+          "target_mean": 0.4861049201797189
+        }
+      },
+      "standard_bss": 0.013344878847175834,
+      "official_like_score": 1334.4878847175835
+    },
+    "p_v14_uncalibrated": {
+      "brier": 0.24627898724813171,
+      "gap_to_1500": 5.22011599410066e-05,
+      "folds": {
+        "2022": {
+          "rows": 247472,
+          "brier": 0.24306772372826035,
+          "prediction_mean": 0.5282620209655013,
+          "target_mean": 0.5289204435249241
+        },
+        "2023": {
+          "rows": 245525,
+          "brier": 0.2481804648370496,
+          "prediction_mean": 0.49919051590877156,
+          "target_mean": 0.49995723449750534
+        },
+        "2024": {
+          "rows": 253507,
+          "brier": 0.24757219619609194,
+          "prediction_mean": 0.4910508341075928,
+          "target_mean": 0.4861049201797189
+        }
+      },
+      "standard_bss": 0.014791175674431,
+      "official_like_score": 1479.1175674431001
+    },
+    "p_v14_month_calibrated": {
+      "brier": 0.24618918068108162,
+      "gap_to_1500": -3.760540710909255e-05,
+      "folds": {
+        "2022": {
+          "rows": 247472,
+          "brier": 0.2429333270420623,
+          "prediction_mean": 0.5278952699690516,
+          "target_mean": 0.5289204435249241
+        },
+        "2023": {
+          "rows": 245525,
+          "brier": 0.24807905707914052,
+          "prediction_mean": 0.4981750494601612,
+          "target_mean": 0.49995723449750534
+        },
+        "2024": {
+          "rows": 253507,
+          "brier": 0.2475371541458064,
+          "prediction_mean": 0.48883175900230297,
+          "target_mean": 0.4861049201797189
+        }
+      },
+      "standard_bss": 0.015150435809973883,
+      "official_like_score": 1515.0435809973883
+    }
+  },
+  "fold_deltas_vs_v13": {
+    "2022": -0.0005103844838609539,
+    "2023": -0.0006493958427943314,
+    "2024": -0.0002019010321853143
+  },
+  "bootstrap": {
+    "final_vs_v13": {
+      "cluster_col": "pitcher_id",
+      "repeats": 3000,
+      "observed_delta": -0.00045134668837454317,
+      "ci_low": -0.000567279405044524,
+      "ci_high": -0.0003519957618990162,
+      "p_delta_lt_0": 1.0
+    },
+    "robust_vs_v13": {
+      "cluster_col": "pitcher_id",
+      "repeats": 3000,
+      "observed_delta": -0.000361540121324444,
+      "ci_low": -0.000458016401009384,
+      "ci_high": -0.00027750338942680516,
+      "p_delta_lt_0": 1.0
+    }
+  },
+  "nested_diagnostics": {
+    "protocol": "2023<-2022; 2024<-2022+2023; 2022 remains V13",
+    "pooled_brier": 0.24733718967520085,
+    "folds": [
+      {
+        "valid_season": 2023,
+        "direction_weights": [
+          0.3698588382607721,
+          0.15055173164452737,
+          0.48125137388754086
+        ],
+        "brier": 0.25040073443352273,
+        "delta_vs_v13": 0.0016722815115878809
+      },
+      {
+        "valid_season": 2024,
+        "direction_weights": [
+          0.35402562174566754,
+          0.2796742516607793,
+          0.23123551122961902
+        ],
+        "brier": 0.24817089445562535,
+        "delta_vs_v13": 0.00043183927763362773
+      }
+    ]
+  },
+  "completion_audit": {
+    "local_1500_reached_exploratory": true,
+    "all_folds_improve_vs_v13": true,
+    "pitcher_bootstrap_ci_below_zero": true,
+    "nested_calibration_improves": false,
+    "official_1500_verified": false
+  },
+  "warning": "The local 1500 crossing uses calibration fitted on pooled held-out predictions. Its next-season nested diagnostic is reported separately and is weaker; official score is not yet available."
+}

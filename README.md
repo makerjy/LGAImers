@@ -47,24 +47,40 @@ V14 최종 후보의 Brier score는 **0.246189**였습니다. 이 값은 공식 
 성적 및 최근 1/3/5경기 성적입니다. 원본의 모든 컬럼을 그대로 모델에 넣지 않고,
 중복·외삽 위험·누수 가능성을 검토해 모델별 입력으로 재구성했습니다.
 
-## 대화에서 실제 구현으로 이어진 설계 흐름
+## 연구 질문과 의사결정 흐름
 
-프로젝트에서 논의된 방향은 다음과 같이 정리됩니다.
+이 프로젝트의 모델 개발은 “더 복잡한 네트워크를 만들면 더 좋아질 것”이라는
+가설에서 출발했지만, 최종적으로는 데이터의 시간 구조와 feature reliability를
+검증하는 방향으로 이동했습니다.
 
 1. 원본 경기 상황과 as-of 성적을 기반으로 CatBoost·LightGBM·Tabular NN 계열을
    비교했습니다.
-2. 선수별 변동을 직접 예측하기보다, 강한 기준 모델의 logit에 작은 보정값을
-   더하는 residual 모델을 HCCN 후보로 설계했습니다.
-3. HCCN의 과도한 보정을 막기 위해 bounded residual, anchor 유지, 신뢰도 게이트,
-   residual penalty를 도입했습니다.
-4. 시간 순서가 맞는 temporal OOF와 pitcher cluster bootstrap으로 모델 선택을
-   검증했습니다.
-5. 최종 V14에서는 V13을 기준점으로 유지하고, 서로 다른 모델이 제시하는 방향만
-   정규시즌에 제한적으로 결합한 뒤 월별 affine calibration을 적용했습니다.
+2. 서로 다른 의미의 입력을 Entity / History / Context로 나누고, 강한 CatBoost
+   기준선의 logit을 보정하는 Residual HCCN을 설계했습니다.
+3. bounded residual, reliability gate, residual penalty를 넣어 기준선에서
+   지나치게 멀어지는 보정을 제한했습니다.
+4. 이후 동료 브랜치의 실험을 교차검토하면서, 모델 표현력보다 strict-past
+   profile·shrinkage·recency weighting·이질적 tree ensemble이 더 직접적으로
+   시간 이동 문제를 다룬다는 점에 주목했습니다.
+5. 최종 V14에서는 V13을 기준점으로 유지하고, MH 앙상블과 TabM이 제시하는
+   **방향**만 정규시즌에 제한적으로 결합한 뒤 `game_type × month` affine
+   calibration을 적용했습니다.
 
-이 문서는 대화의 의도와 저장소에서 확인되는 구현을 구분합니다. 특히 `HCCN`의
-정확한 약어 풀이는 저장소 문서에서 확인되지 않아 임의로 확장하지 않았습니다.
-코드에서 확인되는 명칭은 `ResidualHCCN`입니다.
+이 README의 HCCN 분석은 대화에서 세운 설계 의도와 실제 코드·artifact를
+분리해서 서술합니다. 프로젝트 문맥에서는 HCCN을 *Hierarchical Contextual
+Cross Network*로 부르지만, 소스의 클래스명은 `ResidualHCCN`입니다. 초기
+HCCN source-only 구현과 동료 모델의 비교 기준은 다음 branch snapshot입니다.
+
+- [초기 HCCN source (`jy_branch`)](https://github.com/taeg2/Konkuk_CS_Aimers/tree/jy_branch)
+  — commit `6fab3c0`
+- [동료 tree ensemble (`jw_branch`)](https://github.com/taeg2/Konkuk_CS_Aimers/tree/jw_branch)
+  — commit `b88d01e`
+- [고성능 BSS 모델 (`mh_branch`)](https://github.com/taeg2/Konkuk_CS_Aimers/tree/mh_branch)
+  — commit `19b1e3f`
+
+`jy_branch`에는 HCCN 학습 소스와 테스트는 있지만 OOF parquet/metric CSV는
+포함되어 있지 않습니다. 따라서 branch README의 수치는 “branch에 기록된 결과”,
+현재 `final/`의 JSON 수치는 “이 저장소에서 직접 확인한 결과”로 구분했습니다.
 
 ## 전처리와 feature engineering
 
@@ -146,9 +162,20 @@ confidence = n / (n + 500)
 
 ### HCCN의 저장 위치와 해석 범위
 
-현재 Git 소스의 `challengers/v14_mh_profile_ensemble/`에는 HCCN 모듈이 없습니다.
-대신 로컬 최종 제출 파일 `final/v14_submit.zip` 내부에 다음 구현과 checkpoint가
-포함되어 있습니다.
+초기 HCCN의 전체 source는 현재 저장소의 과거 작업을 정리한
+[`jy_branch`](https://github.com/taeg2/Konkuk_CS_Aimers/tree/jy_branch)에 보존되어
+있습니다. 핵심 구현은
+[`challengers/residual_hccn/`](https://github.com/taeg2/Konkuk_CS_Aimers/tree/jy_branch/challengers/residual_hccn),
+공통 feature 생성은
+[`src/features/`](https://github.com/taeg2/Konkuk_CS_Aimers/tree/jy_branch/src/features),
+실행·검증은
+[`challengers/residual_hccn/train.py`](https://github.com/taeg2/Konkuk_CS_Aimers/blob/jy_branch/challengers/residual_hccn/train.py)와
+[`evaluate.py`](https://github.com/taeg2/Konkuk_CS_Aimers/blob/jy_branch/challengers/residual_hccn/evaluate.py)에
+있습니다.
+
+현재 `makerjy/LGAImers`의 최신 V14 source tree에는 HCCN 학습 모듈을 복사해 두지
+않았지만, 로컬 최종 제출 파일 `final/v14_submit.zip` 내부에는 다음 구현과
+checkpoint가 보존되어 있습니다.
 
 ```text
 src/residual_hccn/          # V1
@@ -160,10 +187,10 @@ model/track_v2/final_hccn_v2.pt
 model/track_v3/final_hccn_v3.pt
 ```
 
-따라서 아래 HCCN 설명은 Git에 직접 공개된 학습 코드의 설명이 아니라, 최종
-제출 ZIP에 보존된 소스·checkpoint·policy를 읽어 정리한 것입니다. ZIP은 모델
-가중치 용량 때문에 `.gitignore`로 제외되어 있어, 깨끗한 clone만으로 HCCN
-학습을 재현할 수 있다고 주장하지 않습니다.
+따라서 아래 HCCN 설명은 `jy_branch`의 공개 source와 최종 ZIP 내부의 source·
+checkpoint·policy를 서로 대조해 정리한 것입니다. ZIP은 모델 가중치 용량 때문에
+`.gitignore`로 제외되어 있어, 현재 저장소의 깨끗한 clone만으로 HCCN 학습을
+재현할 수 있다고 주장하지 않습니다.
 
 ### 목적: 전체 재분류기가 아닌 기준 모델의 residual correction
 
@@ -183,6 +210,33 @@ prediction = sigmoid(final_logit)
 - `tanh`와 residual L2 penalty로 보정 폭을 제한합니다.
 - 데이터가 부족한 상황에서는 reliability gate와 magnitude gate가 보정값을
   작게 만들 수 있습니다.
+
+### 도입 배경과 실제 구현 계약
+
+초기 HCCN은 “경기 상황과 선수 이력을 하나의 평면 벡터로 넣는 대신, 의미가 다른
+정보를 계층적으로 나누고 기준 모델의 부족한 부분만 보정하면 확률 품질이 좋아질
+것”이라는 가설을 검증하기 위한 challenger였습니다. 여기서 계층은 데이터에
+관측된 공식 계층이라기보다, `entity`(누가 던지고 치는가), `history`(과거에
+어떻게 했는가), `context`(지금 어떤 상황인가)를 모델링 목적에 따라 나눈
+inductive bias입니다.
+
+실제 `ResidualHCCN`의 입력·학습 계약은 다음과 같습니다.
+
+| 경로 | 실제 구현에서 확인된 내용 | 설계 의도 |
+|---|---|---|
+| 기준 예측 | fold-safe CatBoost OOF 확률을 logit으로 변환 | 강한 기준선의 확률 수준을 보존 |
+| Entity | 투수·타자·팀·상황 범주형 embedding | 반복되는 entity 조합의 표현 학습 |
+| History | as-of 성적, 최근 폼, 표본 수·결측·shrinkage 관련 수치 | 선수 이력의 규모와 신뢰도 함께 전달 |
+| Context | count, base, inning, score, LI, pressure 등 수치와 범주 | 동일 선수라도 상황별 잔차를 분리 |
+| Gate | count/base, 표본 수·결측·LI 관련 입력 | 어떤 expert의 보정을 신뢰할지 결정 |
+| 출력 | 네 expert residual의 gate 가중합을 bounded correction으로 변환 | 전체 재분류보다 작은 logit 보정 |
+
+중요한 구현상의 한계도 있습니다. `jy_branch`의 학습 코드는 `x_all_num` 전체를
+직접 사용하지 않고 history/context/entity/gate 배열을 명시적으로 받습니다. 또한
+history는 순서가 있는 시계열 encoder가 아니라 집계된 snapshot 벡터입니다. 따라서
+이 모델을 “선수 이력을 계층적 시퀀스로 학습한 모델”이라고 설명하는 것은 실제
+구현보다 강한 표현이며, 정확히는 **집계 이력·현재 상황·entity embedding을
+분리한 residual network**입니다.
 
 ### 상세 아키텍처
 
@@ -258,6 +312,21 @@ V1의 loss 설정은 BCE + `0.25 × Brier` + `0.001 × residual L2`이고, V2/V3
 학습 목표도 분류 손실만 최소화하는 것이 아니라 기준선에서 필요 이상으로 멀어지지
 않는 확률 보정을 지향합니다.
 
+### 초기 버전의 규모와 실험 조건
+
+로컬에 보존된 checkpoint metadata를 기준으로 보면 V1은 history 52개, context
+27개, gate 10개의 raw 수치 컬럼에 결측 indicator를 더해 각각 104, 54, 20개로
+확장했고, 11개 entity categorical 입력을 사용했습니다. V1 parameter count는
+`271,461`, 최종 refit epoch는 `2`였습니다. V2는 magnitude gate와 설정 변경으로
+`282,278` parameters·12 epochs, V3는 model-state tower까지 추가해 `308,230`
+parameters·15 epochs로 기록되어 있습니다.
+
+이 수치는 버전별 학습 예산과 구조가 동시에 바뀐 metadata입니다. 따라서 V1/V2/V3
+차이를 순수하게 “tower 하나를 추가한 효과” 또는 “파라미터가 많아서 생긴 과적합”으로
+해석할 수 있는 controlled ablation은 아닙니다. 현재 저장소에는 각 버전의 원본 OOF와
+seed별 train/validation 로그가 남아 있지 않으므로, 여기서는 구조와 학습 조건을
+재현 가능한 사실로 제시하고 원인을 단정하지 않습니다.
+
 ### HCCN이 최종에서 맡은 위치
 
 제출 ZIP의 `script.py`를 기준으로 보면 HCCN은 다음 계층의 일부입니다.
@@ -269,6 +338,52 @@ V1의 loss 설정은 BCE + `0.25 × Brier` + `0.001 × residual L2`이고, V2/V3
 - V11/V12/V13의 lookup·season correction을 거친 결과가 V14의 base가 됩니다.
 - 따라서 V14 최종 예측은 HCCN 단일 모델의 출력이라고 부르기보다, HCCN 계열을
   포함한 이전 스택 위에 V14가 추가된 구조라고 설명하는 것이 정확합니다.
+
+### 초기 HCCN을 주력으로 확장하지 않은 이유
+
+HCCN을 최종 주력으로 확장하지 않고 후속 설계로 이동한 이유를 단순히 “신경망이
+성능이 낮아서”라고
+정리할 수는 없습니다. 확인 가능한 소스와 artifact를 기준으로는 다음과 같은
+구조적 가설이 더 타당합니다.
+
+1. **계층은 유용한 가정이지만 데이터의 실제 계층은 아니었습니다.** Entity,
+   history, context를 분리한 것은 해석 가능한 설계였지만 `count_state`와
+   `base_state`처럼 여러 경로에 반복되는 변수가 있고, 선수 이력은 sequence가
+   아닌 집계 snapshot이었습니다. `contextual_history.py`에는 pitcher×count,
+   pitcher×hand matchup 등 더 세분화된 aggregate spec이 정의되어 있지만,
+   `jy_branch`의 HCCN 학습 경로에서 실제 호출되는 것은 확인되지 않았습니다.
+   설계 문서에 존재하는 feature와 모델에 실제 공급된 feature를 구분해야 하는
+   이유입니다.
+2. **capacity가 병목이었다는 직접 증거는 없습니다.** 원본에는 약 147만 투구,
+   투수 792명, 타자 830명이 있고, 투수별 행 수는 극도로 불균형합니다. 로컬
+   확인 기준으로 10행 미만 투수는 5명, 30행 미만은 50명, 100행 미만은
+   143명입니다. 이는 raw ID embedding과 복잡한 tower가 cold-start에서
+   얻을 수 있는 신호를 제한할 수 있음을 시사하지만, HCCN의 train/validation
+   gap 로그가 tracked되어 있지 않아 과적합을 사실로 단정하지 않았습니다.
+3. **residual의 신호가 작고 불안정할 가능성이 있었습니다.** `max_delta`,
+   residual scale, L2/anchor penalty로 보정 폭을 제한한 것은 안전한 설계였지만,
+   잔차 자체가 강한 일반화 신호인지 확인하려면 seed별 residual 분포와 fold별
+   개선이 필요합니다. 해당 원본 report가 현재 branch에 없으므로 “잔차가
+   noise였다”고 결론내리는 대신, residual challenger를 최종 모델이 아닌
+   검증 대상으로 남겼습니다.
+4. **history reliability 문제는 구조보다 feature 설계의 문제에 가까웠습니다.**
+   HCCN도 표본 수·missing flag·smoothed rate를 사용했지만, raw player embedding과
+   집계 history가 함께 들어가는 구조였습니다. 후속 V14는 strict-past lookup,
+   prior 기반 shrinkage, season-to-date와 recency weighting으로 신뢰도를 더
+   명시적으로 제어했습니다.
+5. **시간에 따른 regime shift를 별도 설계해야 했습니다.** 원본에서 정규시즌
+   성공률은 2022년 `R=0.503691`, 2023년 `R=0.503118`, 2024년 `R=0.489707`로
+   움직였고, `F`는 2022년 `0.708749`에서 2023년 `0.472904`, 2024년 `0.459280`로
+   크게 달라졌습니다. 초기 HCCN의 2년 training window와 최종 2022–2024
+   refit에는 이 변화를 별도로 분리해 다루는 장치가 제한적이었습니다.
+6. **검증은 좋았지만 재현성은 제한적이었습니다.** HCCN 코드는 temporal fold,
+   validation Brier early stopping, pitcher-cluster bootstrap을 고려했습니다.
+   반면 branch에 OOF parquet와 metric CSV가 보존되지 않아, HCCN과 기준선의
+   동일 조건 비교 및 seed 안정성을 현재 clone에서 다시 계산할 수 없습니다.
+
+즉 초기 HCCN의 교훈은 “표현력을 더 키우자”가 아니라, **검증 가능한 과거 이력과
+시간 이동에 강한 feature를 먼저 만들고, 복잡한 모델은 그 위에서 제한적으로
+사용하자**는 방향 전환이었습니다.
 
 ## 현재/최종 후보 모델과 설계 의도
 
@@ -336,6 +451,30 @@ p_robust = clip(
 이후 `game_type × game_month`별로 학습한 fixed affine calibration을 적용합니다.
 보정식의 개별 계수는 [v14_policy.json](final/v14_policy.json)에 그대로 보존되어
 있습니다.
+
+### 동료 고성능 모델과의 구조 비교
+
+초기 HCCN의 방향을 평가할 때는 신경망의 복잡도만 보지 않고, 실제 점수 기록이
+남은 `jw_branch`와 `mh_branch`의 feature·validation·ensemble 설계를 함께
+비교했습니다. 두 branch의 점수는 서로 다른 시점과 지표로 기록되어 있으므로
+현재 V14의 Brier 표와 직접 순위를 매기지 않았습니다.
+
+| 항목 | 초기 HCCN (`jy_branch`) | `mh_branch` / `jw_branch` | 후속 설계에 미친 영향 |
+|---|---|---|---|
+| 기준 모델 | CatBoost OOF logit 위 residual correction | CatBoost·LightGBM 여러 모델의 이질적 앙상블 | 단일 복잡 모델보다 모델군의 오류 다양성을 활용 |
+| feature | Entity / History / Context tower, gate 입력 | strict-past profile, shrinkage, row-independent feature | 이력을 sequence가 아닌 검증 가능한 lookup으로 단순화 |
+| 선수 표현 | raw pitcher/batter ID embedding과 집계 이력 | `mh`: raw ID 제외, `jw`: profile 중심·ID 제외 | cold-start와 ID 암기 위험을 직접 관리 |
+| 시간 가중 | HCCN config의 2년 window, decay `0.7` | `mh`: 4년·`1/.75/.5/.25`, `jw`: 5년·season decay `0.7` 및 월별 recency | temporal shift를 모델 구조보다 학습 표본 설계로 반영 |
+| 앙상블 규모 | 네 residual expert와 reliability gate | `mh`: 12개 모델, `jw`: 7 model type × 6 seed = 42개 | expert 내부 혼합과 모델 family 간 diversity를 구분 |
+| calibration | Brier 중심 loss와 residual/anchor penalty | `mh`: BSS 중심 평가와 logit 평균·shift 기록 | ranking보다 확률 수준과 calibration을 최종 기준으로 채택 |
+| 검증 | 2022–2024 temporal fold, Brier early stopping, cluster bootstrap | `jw`: 다년 temporal AUC 평균 기록, random split의 낙관성도 문서화 | validation protocol을 모델의 일부로 취급 |
+| 기록된 성능 | branch README에 Brier `0.247123` 등 기록 | `mh` 문서: LB `1025`, `jw` 문서: LB `961`, 다년 평균 AUC `0.55376` | 서로 다른 프로토콜임을 표시하고 숫자 자체보다 설계를 채택 |
+
+이 비교에서 얻은 핵심은 HCCN의 tower를 그대로 확장하는 것이 아니라, `mh`의
+행 독립성·strict-past profile·4년 recency와 `jw`의 강한 regularization·다년
+temporal holdout·여러 tree family를 후속 V14에 흡수하는 것이었습니다. 현재 V14의
+`MH profile ensemble`은 이 판단을 코드로 옮긴 결과이고, TabM은 동일 feature 위에서
+오류 방향의 추가 다양성을 확인하기 위한 보조 후보입니다.
 
 ## Validation / OOF 전략
 
@@ -418,6 +557,15 @@ HCCN V4 policy는 HCCN V1 anchor보다 낮은 Brier의 best preselect 후보를
 및 V14까지 이어지므로, 이를 곧바로 “HCCN V4가 전체 최종 모델”이라고 부르지
 않았습니다.
 
+`jy_branch/README.md`에는 HCCN v1에 대해 Brier `0.247123`, branch 표기 BSS `1141.43`,
+2024 Brier `0.248198`, AUROC `0.545125`가 기록되어 있습니다. 이 값은 branch의
+기록으로서 초기 시도의 방향성을 보여주는 참고값이며, 현재 V14 표와 같은 OOF
+생성·calibration·평가 프로토콜이라고 확인할 수 없습니다. 특히 branch의
+`artifacts/`에는 실제 OOF parquet나 metric CSV 대신 placeholder만 남아 있어,
+기준 CatBoost와 HCCN 사이의 동일 조건 개선폭을 이 clone에서 독립적으로 재계산할
+수 없습니다. 대화 중 제시되었던 별도의 기준선 수치도 tracked artifact에서
+확인되지 않아 본문 성능표에는 넣지 않았습니다.
+
 ### 불확실성 확인
 
 V14 final과 V13의 차이를 `pitcher_id` cluster 단위로 3,000회 bootstrap했습니다.
@@ -458,6 +606,38 @@ V14 final과 V13의 차이를 `pitcher_id` cluster 단위로 3,000회 bootstrap�
 - TrackMan branch는 선수 crosswalk를 확보하지 못했고, permutation/negative
   control 검증에서 최종 채택할 이득을 확인하지 못해 제외했습니다.
 - 공식 대회 서버 점수와 미래 시즌 검증 결과는 이 저장소에서 확인되지 않습니다.
+
+## 연구 고찰과 개선 방향
+
+이 프로젝트에서 가장 중요한 결과는 특정 모델 하나의 숫자가 아니라, 어떤 가설을
+버리고 어떤 신호를 남겼는지입니다.
+
+- **Residual 접근은 타당한 출발점이었습니다.** 기준 모델의 확률을 보존하면서
+  추가 정보를 작은 방향 보정으로 제한했기 때문에, 복잡한 challenger를 안전하게
+  비교할 수 있었습니다. 다만 HCCN이 최종 V14의 단독 출력이 된 것은 아니며,
+  branch의 raw OOF 부재로 HCCN의 독립적인 일반화 우위를 확정할 수 없습니다.
+- **표현력보다 feature reliability를 우선하게 되었습니다.** raw ID와 tower를
+  늘리는 대신 strict-past profile, shrinkage, 표본 수, season-to-date, recency를
+  명시적으로 설계했습니다. 이 변화는 “새로운 선수와 시간 이동에서도 무엇을
+  신뢰할 것인가”라는 질문에 직접 답합니다.
+- **expert mixture와 heterogeneous ensemble은 같은 diversity가 아닙니다.**
+  HCCN의 네 expert는 하나의 공유 표현 안에서 residual 방향을 나누는 구조인 반면,
+  `mh`/`jw`의 CatBoost·LightGBM 조합은 서로 다른 학습 편향과 feature 사용법을
+  가진 모델 family를 결합합니다. 후속 V14에서는 후자의 오류 다양성을 더 직접적인
+  개선 방향으로 채택했습니다.
+- **calibration은 모델 선택의 부속 단계가 아니라 목적함수의 일부입니다.**
+  AUROC가 순위만 평가하는 반면 Brier/BSS는 확률의 크기까지 평가합니다. 그래서
+  V14는 절대 확률을 무작정 평균내지 않고 V13 대비 residual 방향을 제한된
+  `R` 행에만 적용한 뒤 calibration을 별도로 검토했습니다.
+- **validation protocol 자체가 모델의 일부입니다.** pooled held-out 결과에서
+  개선된 calibration도 nested next-season 진단에서는 약해졌습니다. 따라서 현재
+  1515 local 결과를 미래 시즌 성능으로 포장하지 않고, 다음 연구에서는 방향·보정
+  정책을 각 검증 시즌 이전에만 fit하는 nested OOF를 기본 절차로 삼아야 합니다.
+
+후속 개선의 우선순위는 (1) HCCN source와 OOF/seed 로그를 함께 보존해 재현성을
+복구하고, (2) strict-past profile과 season-to-date의 rule 해석을 명시적으로
+검증하고, (3) Brier 기반 nested calibration을 고정한 뒤, (4) compact neural
+challenger와 tree ensemble의 residual diversity를 공정하게 비교하는 것입니다.
 
 ## 최종 추론 파이프라인
 
